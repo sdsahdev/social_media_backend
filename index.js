@@ -41,6 +41,6 @@ app.get("/user", (req, res) => {
 });
 
 
-app.listen(process.env.PORT || 8200, () => {
-  console.log("app is runnig on port ", process.env.PORT || 8200);
+app.listen(process.env.PORT || 8000, () => {
+  console.log("app is runnig on port ", process.env.PORT || 8000);
 });
