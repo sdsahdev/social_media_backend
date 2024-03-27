@@ -26,6 +26,9 @@ mongoose
   .catch((err) => {
     console.log(err);
   });
+  app.get("/", (req,res)=> {
+    res.send("Hello dev");
+  });
 app.use("/uploads", express.static("uploads"));
 // http://localhost:8200/uploads/1711028675289_heart.png
 app.use("/socialapp/api/comment", commentRouter);
