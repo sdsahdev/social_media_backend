@@ -6,8 +6,8 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const userRouter = require("./routes/user");
 const authRouter = require("./routes/auth");
-const postRouter = require("../backend/routes/post");
-const commentRouter = require("../backend/routes/comments");
+const postRouter = require("./routes/post");
+const commentRouter = require("./routes/comments");
 dotenv.config();
 
 // middlware
