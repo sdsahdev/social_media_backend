@@ -37,7 +37,7 @@ router.put("/update/:id", async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       req.body.password = await bcrypt.hash(req.body.password, salt);
     }
-    User.findOneAndUpdate({ _id: req.params.id }, { $set: req.body });
+   await User.findOneAndUpdate({ _id: req.params.id }, { $set: req.body });
 
     res.status(200).json({
       status: true,
@@ -71,7 +71,7 @@ router.delete("/delete/:id", async (req, res) => {
 
 router.get("/getAllUser/", async (req, res) => {
   try {
-    User.find().then((users) => {
+    await User.find().then((users) => {
       res
         .status(200)
         .json({
@@ -124,9 +124,10 @@ router.get("/getUser/:id", async (req, res) => {
 // follow
 router.put("/follow/:id", async(req,res)=> {
   try{
-    const user = await User.findById({_id: req.params.id});
-    const currentuser = await User.findById({_id: req.body.id});
 
+    //  req.params.id == other user id
+    // req.body.id == current login user id
+    const user = await User.findById({_id: req.params.id});
     let isfollow = false; 
     user.follower.map((item) => {
       if(item == req.body.id){
@@ -134,11 +135,7 @@ router.put("/follow/:id", async(req,res)=> {
       }
     })
 
-    if(isfollow){
-      // return res.status(400).json({
-      //   status: false,
-      //   message: "You are already following this user"
-      // })
+    if(isfollow){ 
       await User.findOneAndUpdate({_id:req.params.id}, {$pull:{follower :req.body.id}})
       await User.findOneAndUpdate({_id:req.body.id}, {$pull:{following:req.params.id}})
       return res.status(200).json({

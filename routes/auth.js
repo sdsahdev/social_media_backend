@@ -1,8 +1,8 @@
 const router = require("express").Router();
 const User = require("../model/User");
 const bcrypt = require("bcrypt");
-// register
 
+// register
 router.post("/register", async (req, res) => {
   try {
     // Input validation
@@ -55,6 +55,8 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 });
+
+
 // login
 router.post("/login", async (req, res) => {
   try {
