@@ -22,7 +22,6 @@ const UserSchema = new mongoose.Schema({
         type:String,
         max:10,
         required:true,
-
     },
     gender:{
         type:String,
@@ -32,11 +31,12 @@ const UserSchema = new mongoose.Schema({
     dob:{
         type:String,
         max:10,
-
+        default:"",
     },
     address:{
         type:String,
         max:50,
+        default:"",
     },
     profilePic:{
         type:String,
@@ -54,6 +54,11 @@ const UserSchema = new mongoose.Schema({
         type:Array,
         default:[],
     },
+    bio:{
+        type:String,
+        max:100,
+        default:"",
+    }
 },{timestamps:true})
 
 module.exports = mongoose.model("User", UserSchema)

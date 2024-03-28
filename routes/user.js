@@ -18,6 +18,7 @@ router.put("/update/:id", async (req, res) => {
       "coverPic",
       "follower",
       "following",
+      "bio"
     ];
 
     // Check if any invalid keys are present in the request body
