@@ -58,6 +58,10 @@ const UserSchema = new mongoose.Schema({
         type:String,
         max:100,
         default:"",
+    },
+    online:{
+        type:String,
+        default:"0",
     }
 },{timestamps:true})
 
