@@ -16,15 +16,20 @@ const cookieParser = require("cookie-parser");
 const chatRouter = require("./routes/chat");
 dotenv.config();
 const bodyParser = require("body-parser");
-const { v2 : cloudinary} = require("cloudinary");
-const ChatMessage  = require("./model/chat-app/message.models");
+const { v2: cloudinary } = require("cloudinary");
+const ChatMessage = require("./model/chat-app/message.models");
 const multer = require("multer");
 const {
   createSignleChat,
   createGroupChat,
   createMessages,
 } = require("./seeders/users");
-const { NEW_MESSAGE } = require("./constants/events");
+const {
+  NEW_MESSAGE,
+  NEW_MESSAGE_ALERT,
+  START_TYPEING,
+  STOP_TYPEING,
+} = require("./constants/events");
 // const upload = multer();
 // middlware
 app.use(express.json());
@@ -37,10 +42,20 @@ app.use(express.static("public"));
 // Set up Multer middleware for handling multiple file uploads
 const { v4: uuid } = require("uuid");
 const { getSockets } = require("./Utils/commanf");
+const { verifyToken } = require("./middleware/auth");
 
 const server = createServer(app);
 const io = new Server(server);
+// app.set("io", io);
 const userSocketIds = new Map();
+function verifyTokens(token) {
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded;
+  } catch (error) {
+    return null;
+  }
+}
 
 mongoose
   .connect(process.env.MongoUrl, {
@@ -53,11 +68,11 @@ mongoose
   .catch((err) => {
     console.log(err);
   });
-  cloudinary.config({
-    cloud_name:process.env.CLOUDNARY_CLOUD_NAME,
-    api_key:process.env.CLOUDNARY_API_KEY,
-    api_secret:process.env.CLOUDNARY_API_SECRET,
-  })
+cloudinary.config({
+  cloud_name: process.env.CLOUDNARY_CLOUD_NAME,
+  api_key: process.env.CLOUDNARY_API_KEY,
+  api_secret: process.env.CLOUDNARY_API_SECRET,
+});
 app.get("/", (req, res) => {
   res.send("Hello dev");
 });
@@ -66,48 +81,76 @@ app.get("/", (req, res) => {
 
 io.on("connection", (socket) => {
   console.log("user connected");
+  const token = socket.handshake.auth.token;
+  const user = verifyTokens(token);
+  console.log(user, "====current user====");
 
-  // exmaple user 
-  const user = {
-    _id: "idd",
-    name: "sahdev",
-  };
-  userSocketIds.set(user._id.toString(), socket.id);
+  userSocketIds.set(user.userId.toString(), socket.id);
   console.log(userSocketIds);
   socket.on(NEW_MESSAGE, async ({ chatId, participants, message }) => {
     const messageForRealTime = {
       content: message,
       _id: uuid(),
       sender: {
-        _id: user._id,
-        name: user.name,
+        _id: user.userId,
+        username: user.username,
       },
       chat: chatId,
       createdAt: new Date().toISOString(),
     };
-
+    console.log(typeof participants, "==members==");
+    console.log(message, "==message==");
     const messageForDb = {
       content: message,
-      sender: user._id,
+      sender: user.userId,
       chat: chatId,
     };
-    const participantSocket = getSockets(participants);
+    const participantSocket = participants.map((user) =>
+      userSocketIds.get(user.toString())
+    );
+    console.log(participantSocket, "==participants==");
+    console.log(
+      {
+        chatId,
+        message: messageForRealTime,
+      },
+      "==data=="
+    );
+
     io.to(participantSocket).emit(NEW_MESSAGE, {
       chatId,
       message: messageForRealTime,
     });
-    io.to(participantSocket).emit(NEW_MESSAGE, { chatId });
-    try {
+    io.to(participantSocket).emit(NEW_MESSAGE_ALERT, {
+      chatId,
+      sender: user.userId,
+    });
 
+    try {
       await ChatMessage.create(messageForDb);
-    }catch (error){
+    } catch (error) {
       console.log(error);
     }
   });
 
+  socket.on(START_TYPEING, ({ participants, msgid }) => {
+    const membersSockets = participants.map((user) => {
+      return userSocketIds.get(user.toString()); // Return the result of get()
+    });
+    console.log("start typing", "*************************");
+    socket.to(membersSockets).emit(START_TYPEING, { msgid });
+  });
+  socket.on(STOP_TYPEING, ({ participants, msgid }) => {
+    const membersSockets = participants.map((user) => {
+      return userSocketIds.get(user.toString()); // Return the result of get()
+    });
+    console.log("stop typing", "*************************");
+    socket.to(membersSockets).emit(STOP_TYPEING, { msgid });
+  });
+
   socket.on("disconnect", () => {
     console.log("user disconnected");
-    userSocketIds.delete(user._id.toString());
+    userSocketIds.delete(user.userId.toString());
   });
 });
 
@@ -191,5 +234,17 @@ app.get("/user", (req, res) => {
 server.listen(process.env.PORT || 8000, () => {
   console.log("app is runnig on port ", process.env.PORT || 8000);
 });
+const emitEventfun = (req, event, users, data, chatId) => {
+  const userSockets = users.map((user) => {
+    return userSocketIds.get(user.toString()); // Return the result of get()
+  });
 
-module.exports = { userSocketIds };
+  const message = data?.message;
+
+  io.to(userSockets).emit(NEW_MESSAGE, {
+    chatId,
+    message,
+  });
+  // io.to(participantSocket).emit(NEW_MESSAGE);
+};
+exports.emitEventfun = emitEventfun;

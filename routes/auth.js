@@ -1,7 +1,8 @@
 const router = require("express").Router();
+const { generateToken } = require("../middleware/auth");
 const User = require("../model/User");
 const bcrypt = require("bcrypt");
-
+const jwt = require("jsonwebtoken");
 // register
 router.post("/register", async (req, res) => {
   try {
@@ -43,19 +44,21 @@ router.post("/register", async (req, res) => {
 
     // Save the new user
     await newUser.save();
-    res
-      .status(200)
-      .json({
-        message: "User created successfully.",
-        user: newUser,
-        status: true,
-      });
+
+    // Generate and return JWT token upon successful registration
+    const token = generateToken(newUser._id, newUser.username);
+
+    res.status(200).json({
+      message: "User created successfully.",
+      user: newUser,
+      status: true,
+      token: token,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error." });
   }
 });
-
 
 // login
 router.post("/login", async (req, res) => {
@@ -73,13 +76,13 @@ router.post("/login", async (req, res) => {
         user.password
       );
       if (validePassword) {
-        res
-          .status(200)
-          .json({
-            status: true,
-            message: "user found successfully",
-            data: user,
-          });
+        const token = generateToken(user._id, user.username);
+        res.status(200).json({
+          status: true,
+          message: "user found successfully",
+          data: user,
+          token: token,
+        });
       } else {
         res.status(200).json({ status: false, message: "wrong password" });
       }
@@ -89,5 +92,23 @@ router.post("/login", async (req, res) => {
     res.status(500).json(e);
   }
 });
-
+router.post("/refresh-token", (req, res) => {
+  const refreshToken = req.body.refreshToken;
+  if (!refreshToken) {
+    return res.status(401).json({ message: "Refresh token is missing" });
+  }
+  // Verify refresh token
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: "Refresh token is invalid" });
+    }
+    // Generate new access token
+    const accessToken = jwt.sign(
+      { userId: user.userId },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+    res.json({ accessToken });
+  });
+});
 module.exports = router;

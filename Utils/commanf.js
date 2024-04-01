@@ -1,10 +1,6 @@
-const { userSocketIds } = require("..");
 const User = require("../model/User");
 const { v4: uuid } = require("uuid");
-const { v2 : cloudinary} = require("cloudinary");
-const emitEvent = (req, event, users, data) => {
-  console.log("Emmiting ", event, data);
-};
+const { v2: cloudinary } = require("cloudinary");
 
 const getUserDetails = async (userId) => {
   try {
@@ -31,7 +27,7 @@ const uploadFilesOnClodenary = async (files = []) => {
     const uploadPromise = files.map((file) => {
       return new Promise((resolve, reject) => {
         cloudinary.uploader.upload(
-          file, // Pass the file buffer directly
+          file.path, // Pass the file buffer directly
           { resource_type: "auto", public_id: uuid() },
           (error, result) => {
             if (error) {
@@ -51,20 +47,14 @@ const uploadFilesOnClodenary = async (files = []) => {
   }
 };
 
-
 const getSockets = (users = []) => {
-  const socktes = users.map((user) => userSocketIds.get(user._id.toString()));
+  const socktes = users.map((user) => userSocketIds.get(user.toString()));
   return socktes;
 };
 
- 
-const getBase64 = (file) => `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-
 module.exports = {
-  emitEvent,
   getUserDetails,
   deleteFilesFromCloudinary,
   getSockets,
   uploadFilesOnClodenary,
-  getBase64
 };

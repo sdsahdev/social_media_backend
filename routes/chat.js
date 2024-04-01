@@ -5,22 +5,23 @@ const Chat = require("../model/chat-app/chat.models");
 const User = require("../model/User");
 const ChatMessage = require("../model/chat-app/message.models");
 const multer = require("multer");
-const {uploadFilesOnClodenary} = require("../Utils/commanf")
-// const upload = multer({ dest: "uploads/" }).array("files", 5); // Use 'files' as the field name
+const { uploadFilesOnClodenary } = require("../Utils/commanf");
 const upload = require("../middleware/upload");
+const { v4: uuid } = require("uuid");
 const {
   ALERT,
   REFETCH_CHAT,
   NEW_ATTACHMENT,
   NEW_MESSAGE_ALERT,
+  NEW_MESSAGE,
 } = require("../constants/events");
 const {
-  emitEvent,
   deleteFilesFromCloudinary,
   getUsejrDetails,
 } = require("../Utils/commanf");
 
-// Route to create a new group chat
+const eventFunction = require("../index");
+
 router.post("/create-group", async (req, res) => {
   try {
     const { name, participants, admin } = req.body;
@@ -40,11 +41,18 @@ router.post("/create-group", async (req, res) => {
 
     // Save the new chat to the database
     await newChat.save();
-    emitEvent(req, ALERT, participants, `Welcome to ${name} group`);
-    emitEvent(req, REFETCH_CHAT, participants);
-    res
-      .status(200)
-      .json({status:true ,message: "Group chat created successfully", chat: newChat });
+    eventFunction.emitEventfun(
+      req,
+      ALERT,
+      participants,
+      `Welcome to ${name} group`
+    );
+    eventFunction.emitEventfun(req, REFETCH_CHAT, participants);
+    res.status(200).json({
+      status: true,
+      message: "Group chat created successfully",
+      chat: newChat,
+    });
   } catch (error) {
     console.error("Error creating group chat:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -68,7 +76,7 @@ router.get("/get_my_chat/:userId", async (req, res) => {
       select: "username profilePic", // Select only necessary fields
     });
 
-    res.status(200).json({status:true , chats });
+    res.status(200).json({ status: true, chats });
   } catch (error) {
     console.error("Error fetching user chats:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -92,7 +100,7 @@ router.get("/getMyGropChats/:userId", async (req, res) => {
       select: "username profilePic", // Select only necessary fields
     });
 
-    res.status(200).json({ status:true ,chats });
+    res.status(200).json({ status: true, chats });
   } catch (error) {
     console.error("Error fetching user chats:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -138,16 +146,18 @@ router.post("/add-member/:chatId", async (req, res) => {
     chat.participants.push(userId);
     await chat.save();
     const username = await getUserDetails(userId);
-    emitEvent(
+    eventFunction.emitEventfun(
       req,
       ALERT,
       chat.participants,
       `Welcome to ${username.username} group`
     );
-    emitEvent(req, REFETCH_CHAT, chat.participants);
-    res
-      .status(200)
-      .json({status:true , message: "User added to the chat successfully", chat });
+    eventFunction.emitEventfun(req, REFETCH_CHAT, chat.participants);
+    res.status(200).json({
+      status: true,
+      message: "User added to the chat successfully",
+      chat,
+    });
   } catch (error) {
     console.error("Error adding member to chat:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -200,17 +210,19 @@ router.post("/remove-member/:chatId", async (req, res) => {
     chat.participants.splice(index, 1);
     await chat.save();
     const username = await getUserDetails(userId);
-    emitEvent(
+    eventFunction.emitEventfun(
       req,
       ALERT,
       chat.participants,
       `${username.username} has been removed from the group`
     );
-    emitEvent(req, REFETCH_CHAT, chat.participants);
+    eventFunction.emitEventfun(req, REFETCH_CHAT, chat.participants);
 
-    res
-      .status(200)
-      .json({status:true , message: "User removed from the chat successfully", chat });
+    res.status(200).json({
+      status: true,
+      message: "User removed from the chat successfully",
+      chat,
+    });
   } catch (error) {
     console.error("Error removing member from chat:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -254,7 +266,9 @@ router.post("/leave-group/:chatId", async (req, res) => {
       if (chat.participants.length === 1) {
         // Only admin is left, delete the chat
         await Chat.findByIdAndDelete(chatId);
-        return res.status(200).json({ status:true ,message: "Chat deleted successfully" });
+        return res
+          .status(200)
+          .json({ status: true, message: "Chat deleted successfully" });
       } else {
         return res.status(400).json({
           error: "You cannot leave the group without transferring admin rights",
@@ -266,7 +280,9 @@ router.post("/leave-group/:chatId", async (req, res) => {
     chat.participants.splice(index, 1);
     await chat.save();
 
-    res.status(200).json({ status:true ,message: "User left the chat successfully" });
+    res
+      .status(200)
+      .json({ status: true, message: "User left the chat successfully" });
   } catch (error) {
     console.error("Error leaving group chat:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -276,7 +292,6 @@ router.post("/leave-group/:chatId", async (req, res) => {
 //   send attchament in chat message
 router.post("/send-attachments", async (req, res) => {
   upload.array("files", 5)(req, res, async (err) => {
-
     if (err instanceof multer.MulterError) {
       console.error("Multer error:", err);
       return res.status(400).json({ error: "Multer error" });
@@ -285,46 +300,64 @@ router.post("/send-attachments", async (req, res) => {
       return res.status(500).json({ error: "Error uploading files" });
     }
 
-
     try {
+      const files = req.files || [];
 
-   
-      req.files.forEach(async (file) => { 
-        const fileUrl = await uploadFilesOnClodenary(file.buffer);
-        console.log(file.buffer, "====fileUrl==");
-      })
-        // const result = await uploadFilesOnClodenary(req.file.buffer);
-        // console.log(result, "====result==");
-        // Once files are uploaded successfully, you can proceed with creating the chat message with attachments
+      console.log(files, "======files====");
 
-  
-        // const attachmentUrls = [];
-      //   for (const file of req.files) {  
-      //     const fileUrl = await uploadFilesOnClodenary(file);
-          // attachmentUrls.push({ url: fileUrl.secure_url, public_id: fileUrl.public_id });
-      //   }
-      // Extract data from the request
-      // const { sender, content, chatId } = req.body;
+      const attachments = await uploadFilesOnClodenary(files);
 
+      const { sender, content, chatId } = req.body;
+      const [chat] = await Promise.all([Chat.findById(chatId)]);
+      console.log(sender, content, chatId, "=====data from postman");
+      const user = await User.findById(sender);
+      const newMessage = new ChatMessage({
+        sender: {
+          _id: user._id,
+          username: user.username,
+        },
+        content,
+        attachments,
+        chat: chatId,
+      });
 
-      // const newMessage = new ChatMessage({
-      //   sender,
-      //   content,
-      //   attachments: attachmentUrls,
-      //   chat: chatId,
-      // });
-
+      console.log(newMessage, "===new message====");
       // Save the chat message to the database
-      // await newMessage.save();
+      await newMessage.save();
+      const messageForRealTime = {
+        _id: newMessage._id,
+        sender: {
+          _id: user._id,
+          username: user.username,
+        },
+        content,
+        attachments,
+        chat: chatId,
+        createdAt: new Date().toISOString(),
+      };
+      // const message = await
+      eventFunction.emitEventfun(
+        req,
+        NEW_MESSAGE,
+        chat.participants,
+        messageForRealTime,
+        chatId
+      );
 
-      res
-        .status(200)
-        .json({status:true , message: "Chat message with attachments sent successfully" });
+      eventFunction.emitEventfun(req, NEW_MESSAGE_ALERT, chat.participants, {
+        chatId,
+      });
+
+      res.status(200).json({
+        status: true,
+        message: "Chat message with attachments sent successfully",
+        files: attachments,
+      });
     } catch (error) {
       console.error("Error sending chat message with attachments:", error);
       res.status(500).json({ error: "Internal server error" });
     }
-});
+  });
 });
 
 // get chat details , rename , delete
@@ -337,6 +370,8 @@ router.get("/getchat/:id", async (req, res) => {
       })
       .lean();
     if (!chat) return res.status(404).json({ message: "Chat not found" });
+    // eventFunction.emitEventfun(req, ALERT, participants, `Welcome to ${name} group`);
+    // eventFunction.eventFunction.emitEventfun()
 
     return res.status(200).json({ success: true, chat });
   } else {
@@ -376,9 +411,11 @@ router.post("/rename-group", async (req, res) => {
     existingGroup.name = newName;
     await existingGroup.save();
 
-    res
-      .status(200)
-      .json({status:true , message: "Group renamed successfully", group: existingGroup });
+    res.status(200).json({
+      status: true,
+      message: "Group renamed successfully",
+      group: existingGroup,
+    });
   } catch (error) {
     console.error("Error renaming group:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -422,9 +459,10 @@ router.delete("/delete-group/:groupId", async (req, res) => {
     await ChatMessage.deleteMany({ chat: groupId });
 
     console.log(chat.participants);
-    emitEvent(req, REFETCH_CHAT, chat.participants);
+    eventFunction.emitEventfun(req, REFETCH_CHAT, chat.participants);
 
-    res.status(200).json({status:true ,
+    res.status(200).json({
+      status: true,
       message: "Group chat and associated messages deleted successfully",
     });
   } catch (error) {
@@ -473,11 +511,11 @@ router.get("/message/:id", async (req, res) => {
 //       console.log( req.body, "====chat id ==");
 //     const { chatId } = req.body;
 
-//     const [chat, me] = await Promise.all([
-//       Chat.findById(chatId),
-//       Chat.findById(chatId),
-//       User.findById(req.user, "name"),
-//     ]);
+// const [chat, me] = await Promise.all([
+//   Chat.findById(chatId),
+//   Chat.findById(chatId),
+//   User.findById(req.user, "name"),
+// ]);
 
 //     const files = req.files || [];
 
@@ -491,26 +529,26 @@ router.get("/message/:id", async (req, res) => {
 //       return  res
 //       .status(200)
 //       .json({ message: "User added to the chat successfully", chat });
-//     const attachment = [];
-//     const messageForRealTime = {
-//       content: "",
-//       attachment,
-//       sender: { _id: me._id, name: me.name },
-//       chat:chatId,
-//     };
+// const attachment = [];
+// const messageForRealTime = {
+//   content: "",
+//   attachment,
+//   sender: { _id: me._id, name: me.name },
+//   chat:chatId,
+// };
 
-//     const messageForDb = { content: "", attachment, sender: me._id, chat:chatId };
+// const messageForDb = { content: "", attachment, sender: me._id, chat:chatId };
 
-//     // const message = await
-//     emitEvent(
-//       req,
-//       NEW_ATTACHMENT,
-//       chat.participants,
-//       { message: messageForRealTime },
-//       chatId
-//     );
+// // const message = await
+// eventFunction.emitEventfun(
+//   req,
+//   NEW_ATTACHMENT,
+//   chat.participants,
+//   { message: messageForRealTime },
+//   chatId
+// );
 
-//     emitEvent(req, NEW_MESSAGE_ALERT, chat.participants, { chatId });
+// eventFunction.emitEventfun(req, NEW_MESSAGE_ALERT, chat.participants, { chatId });
 
 //     res
 //       .status(200)
