@@ -1,14 +1,15 @@
 const router = require("express").Router();
 const Post = require("../model/Post");
 const { ObjectId } = require("mongoose").Types;
-const upload = require("../middleware/upload")
+const upload = require("../middleware/upload");
+const { verifyToken } = require("../middleware/auth");
 // add posts
-router.post("/addpost/",upload.single("imageUrl"), async (req, res) => {
+router.post("/addpost/", upload.single("imageUrl"), async (req, res) => {
   try {
     const newPost = new Post(req.body);
 
-    if(req.file){
-      newPost.imageUrl= req.file.filename
+    if (req.file) {
+      newPost.imageUrl = req.file.filename;
     }
 
     newPost
@@ -36,7 +37,7 @@ router.put("/update/:id", async (req, res) => {
         message: "Invalid user ID provided",
       });
     }
-console.log( req.body);
+    console.log(req.body);
     Post.findOneAndUpdate({ _id: req.params.id }, { $set: req.body })
       .then(() => {
         return res.status(200).json({
@@ -101,9 +102,31 @@ router.get("/getpost/:id", async (req, res) => {
 });
 
 // get all posts
-router.get("/getallpost", async (req, res) => {
+router.get("/getallpost", verifyToken, async (req, res) => {
   try {
+    const posts = await Post.aggregate([
+      {
+        $lookup: {
+          from: "users", // name of the User collection
+          localField: "userId",
+          foreignField: "_id",
+          as: "userProfile",
+        },
+      },
+      {
+        $project: {
+          caption: 1,
+          imageUrl: 1,
+          likes: 1,
+          comments: 1,
+          "userProfile.username": 1,
+          "userProfile.profilePic": 1,
+        },
+      },
+    ]);
+
     Post.find()
+      .populate("userId", "profilePic") // Populate userId field with profilePic
       .then((posts) => {
         return res.status(200).json({
           status: true,
@@ -123,55 +146,58 @@ router.get("/getallpost", async (req, res) => {
 router.get("/getuserpost/:id", async (req, res) => {
   try {
     Post.find({ userId: req.params.id })
+      .populate("userId", "profilePic")
       .then((post) => {
         res
           .status(200)
           .json({ status: true, message: "Get user post", data: post });
       })
       .catch((e) => {
-        res
-        .status(500)
-        .json(e);
+        res.status(500).json(e);
       });
   } catch (e) {
     console.log(e);
-    res
-    .status(500)
-    .json(e);
+    res.status(500).json(e);
   }
 });
 
-
 // like post
-router.put("/like/:id",async(req,res)=> {
-    try{
-      const postId = req.params.id.trim(); // Trim whitespace from the id parameter
-      const post = await Post.findOne({ _id: postId });
-        let isLike = false;
-       console.log(post, "===post==");
-        post.likes.map(item => {
-            if(item == req.body.id){
-                isLike = true
-                console.log(post, "====post");
-            }
-        })
+router.put("/like/:id", async (req, res) => {
+  try {
+    const postId = req.params.id.trim(); // Trim whitespace from the id parameter
+    const post = await Post.findOne({ _id: postId });
+    let isLike = false;
+    console.log(post, "===post==");
+    post.likes.map((item) => {
+      if (item == req.body.id) {
+        isLike = true;
+        console.log(post, "====post");
+      }
+    });
 
-        if(isLike){
-            await Post.findOneAndUpdate({_id:req.params.id}, {$pull:{likes:req.body.id }})
-            return res.status(200).json({status:true, message:"Like remove successfully"})
-         }else{
-            await Post.findOneAndUpdate({_id:req.params.id}, {$push:{likes:req.body.id }})
-            return res.status(200).json({status:true, message:"Like send successfully"})
-         }
-    }catch(e){
-        console.log(e);
-        return res.status(500).json(e)
+    if (isLike) {
+      await Post.findOneAndUpdate(
+        { _id: req.params.id },
+        { $pull: { likes: req.body.id } }
+      );
+      return res
+        .status(200)
+        .json({ status: true, message: "Like remove successfully" });
+    } else {
+      await Post.findOneAndUpdate(
+        { _id: req.params.id },
+        { $push: { likes: req.body.id } }
+      );
+      return res
+        .status(200)
+        .json({ status: true, message: "Like send successfully" });
     }
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json(e);
+  }
+});
 
-})
-
-
-// delete post 
-
+// delete post
 
 module.exports = router;
