@@ -104,7 +104,29 @@ router.get("/getpost/:id", async (req, res) => {
 // get all posts
 router.get("/getallpost", verifyToken, async (req, res) => {
   try {
+    const posts = await Post.aggregate([
+      {
+        $lookup: {
+          from: "users", // name of the User collection
+          localField: "userId",
+          foreignField: "_id",
+          as: "userProfile",
+        },
+      },
+      {
+        $project: {
+          caption: 1,
+          imageUrl: 1,
+          likes: 1,
+          comments: 1,
+          "userProfile.username": 1,
+          "userProfile.profilePic": 1,
+        },
+      },
+    ]);
+
     Post.find()
+      .populate("userId", "profilePic") // Populate userId field with profilePic
       .then((posts) => {
         return res.status(200).json({
           status: true,
@@ -124,6 +146,7 @@ router.get("/getallpost", verifyToken, async (req, res) => {
 router.get("/getuserpost/:id", async (req, res) => {
   try {
     Post.find({ userId: req.params.id })
+      .populate("userId", "profilePic")
       .then((post) => {
         res
           .status(200)

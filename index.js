@@ -18,6 +18,7 @@ dotenv.config();
 const bodyParser = require("body-parser");
 const { v2: cloudinary } = require("cloudinary");
 const ChatMessage = require("./model/chat-app/message.models");
+const Chat = require("./model/chat-app/chat.models");
 const multer = require("multer");
 const {
   createSignleChat,
@@ -56,7 +57,6 @@ function verifyTokens(token) {
     return null;
   }
 }
-
 mongoose
   .connect(process.env.MongoUrl, {
     useNewUrlParser: true,
@@ -105,6 +105,7 @@ io.on("connection", (socket) => {
       sender: user.userId,
       chat: chatId,
     };
+    2;
     const participantSocket = participants.map((user) =>
       userSocketIds.get(user.toString())
     );
@@ -125,9 +126,18 @@ io.on("connection", (socket) => {
       chatId,
       sender: user.userId,
     });
-
     try {
-      await ChatMessage.create(messageForDb);
+      // Save the message to the database
+      const newMessage = await ChatMessage.create(messageForDb);
+
+      // Retrieve the chat document associated with the message
+      const chat = await Chat.findById(chatId);
+
+      // Update the lastMessage field of the chat document
+      chat.lastMessage = newMessage._id;
+
+      // Save the updated chat document back to the database
+      await chat.save();
     } catch (error) {
       console.log(error);
     }
@@ -153,6 +163,36 @@ io.on("connection", (socket) => {
     userSocketIds.delete(user.userId.toString());
   });
 });
+
+app.use("/uploads", express.static("uploads"));
+app.use("/socialapp/api/admin", adminRouter);
+app.use("/socialapp/api/chat", chatRouter);
+app.use("/socialapp/api/comment", commentRouter);
+app.use("/socialapp/api/post", postRouter);
+app.use("/socialapp/api/users", userRouter);
+app.use("/socialapp/api/auth", authRouter);
+
+app.get("/user", (req, res) => {
+  res.send("hello user");
+});
+
+server.listen(process.env.PORT || 8000, () => {
+  console.log("app is runnig on port ", process.env.PORT || 8000);
+});
+const emitEventfun = (req, event, users, data, chatId) => {
+  const userSockets = users.map((user) => {
+    return userSocketIds.get(user.toString()); // Return the result of get()
+  });
+
+  const message = data?.message;
+
+  io.to(userSockets).emit(NEW_MESSAGE, {
+    chatId,
+    message,
+  });
+};
+exports.emitEventfun = emitEventfun;
+// http://localhost:8200/uploads/1711028675289_heart.png
 
 // **********************  SOKET CODE END LIVE ******************************************
 
@@ -217,34 +257,3 @@ io.on("connection", (socket) => {
 // });
 
 // **********************  SOKET CODE END ******************************************
-
-app.use("/uploads", express.static("uploads"));
-// http://localhost:8200/uploads/1711028675289_heart.png
-app.use("/socialapp/api/admin", adminRouter);
-app.use("/socialapp/api/chat", chatRouter);
-app.use("/socialapp/api/comment", commentRouter);
-app.use("/socialapp/api/post", postRouter);
-app.use("/socialapp/api/users", userRouter);
-app.use("/socialapp/api/auth", authRouter);
-
-app.get("/user", (req, res) => {
-  res.send("hello user");
-});
-
-server.listen(process.env.PORT || 8000, () => {
-  console.log("app is runnig on port ", process.env.PORT || 8000);
-});
-const emitEventfun = (req, event, users, data, chatId) => {
-  const userSockets = users.map((user) => {
-    return userSocketIds.get(user.toString()); // Return the result of get()
-  });
-
-  const message = data?.message;
-
-  io.to(userSockets).emit(NEW_MESSAGE, {
-    chatId,
-    message,
-  });
-  // io.to(participantSocket).emit(NEW_MESSAGE);
-};
-exports.emitEventfun = emitEventfun;

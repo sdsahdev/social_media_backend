@@ -49,6 +49,7 @@ router.delete("/delete/:id", async (req, res) => {
 router.get("/getall/:id", async (req, res) => {
   try {
     Comments.find({ postId: req.params.id })
+      .populate("userId", "profilePic")
       .then((comments) => {
         return res.status(200).json({
           status: true,
@@ -68,10 +69,7 @@ router.get("/getall/:id", async (req, res) => {
 // update comment
 router.put("/update/:id", async (req, res) => {
   try {
-    Comments.findOneAndUpdate(
-      { _id: req.params.id },
-      { $set: req.body }
-    )
+    Comments.findOneAndUpdate({ _id: req.params.id }, { $set: req.body })
       .then(() => {
         return res.status(200).json({
           status: true,

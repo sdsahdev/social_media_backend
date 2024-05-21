@@ -8,6 +8,8 @@ const multer = require("multer");
 const { uploadFilesOnClodenary } = require("../Utils/commanf");
 const upload = require("../middleware/upload");
 const { v4: uuid } = require("uuid");
+const emitEventfun = require("../index.js");
+
 const {
   ALERT,
   REFETCH_CHAT,
@@ -21,6 +23,7 @@ const {
 } = require("../Utils/commanf");
 
 const eventFunction = require("../index");
+const { default: mongoose } = require("mongoose");
 
 router.post("/create-group", async (req, res) => {
   try {
@@ -58,6 +61,73 @@ router.post("/create-group", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+// Backend API endpoint for creating a personal chat
+router.post("/create-personal-chat", async (req, res) => {
+  try {
+    const { userId, participantId } = req.body;
+
+    // Check if both user IDs are valid
+    const user = await User.findById(userId);
+    const participant = await User.findById(participantId);
+    if (!user || !participant) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Create a new chat with the specified participants
+    const newChat = new Chat({
+      name: `${user.username} & ${participant.username}`, // Generate a name for the chat
+      isGroupChat: false, // It's a personal chat
+      participants: [userId, participantId],
+      admin: userId, // Assuming the current user is the admin
+      lastMessage: null, // Set initial value for lastMessage
+    });
+
+    // Save the new chat to the database
+    await newChat.save();
+
+    // Optionally, you can emit events or perform additional actions here
+
+    res.status(200).json({
+      status: true,
+      message: "Personal chat created successfully",
+      chat: newChat,
+    });
+  } catch (error) {
+    console.error("Error creating personal chat:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Backend API endpoint for fetching users without personal chats
+router.get("/users-without-personal-chat/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    // Find the current user's personal chats
+    const userChats = await Chat.find({
+      participants: userId,
+      isGroupChat: false,
+    });
+    const usersWithPersonalChat = userChats
+      .map((chat) => chat.participants)
+      .flat();
+
+    // Find users who are not in the list of participants of the user's personal chats
+    const usersWithoutPersonalChat = await User.find({
+      _id: { $nin: usersWithPersonalChat, $ne: userId },
+    });
+
+    res.status(200).json({ usersWithoutPersonalChat });
+  } catch (error) {
+    console.error("Error fetching users without personal chat:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // get my chatlist
 router.get("/get_my_chat/:userId", async (req, res) => {
@@ -71,10 +141,20 @@ router.get("/get_my_chat/:userId", async (req, res) => {
     }
 
     // Find chats where the user is a participant
-    const chats = await Chat.find({ participants: userId }).populate({
-      path: "participants",
-      select: "username profilePic", // Select only necessary fields
-    });
+    const chats = await Chat.find({ participants: userId })
+      .populate({
+        path: "participants",
+        select: "username profilePic", // Select only necessary fields
+      })
+      .populate({
+        path: "lastMessage",
+        select: "content createdAt sender",
+        options: { sort: { createdAt: -1 }, limit: 1 }, // Sort by createdAt in descending order and limit to 1
+        populate: {
+          path: "sender",
+          select: "username",
+        },
+      });
 
     res.status(200).json({ status: true, chats });
   } catch (error) {
@@ -434,10 +514,12 @@ router.delete("/delete-group/:groupId", async (req, res) => {
     if (!existingGroup) {
       return res.status(404).json({ error: "Group not found" });
     }
-    if (existingGroup.admin.toString() !== userId) {
-      return res
-        .status(403)
-        .json({ error: "Only the admin can delete the group" });
+    if (existingGroup.isGroupChat) {
+      if (existingGroup.admin.toString() !== userId) {
+        return res
+          .status(403)
+          .json({ error: "Only the admin can delete the group" });
+      }
     }
 
     // Delete the group chat and related chat messages
