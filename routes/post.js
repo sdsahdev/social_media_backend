@@ -82,7 +82,10 @@ router.get("/getpost/:id", async (req, res) => {
       });
     }
 
-    const post = await Post.findOne({ _id: req.params.id });
+    const post = await Post.findOne({ _id: req.params.id }).populate(
+      "userId",
+      "profilePic"
+    );
     if (post) {
       res.status(200).json({
         status: true,

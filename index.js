@@ -163,6 +163,7 @@ io.on("connection", (socket) => {
     userSocketIds.delete(user.userId.toString());
   });
 });
+// **********************  SOKET CODE END LIVE ******************************************
 
 app.use("/uploads", express.static("uploads"));
 app.use("/socialapp/api/admin", adminRouter);
@@ -193,8 +194,6 @@ const emitEventfun = (req, event, users, data, chatId) => {
 };
 exports.emitEventfun = emitEventfun;
 // http://localhost:8200/uploads/1711028675289_heart.png
-
-// **********************  SOKET CODE END LIVE ******************************************
 
 // **********************  SOKET CODE START practice ******************************************
 
