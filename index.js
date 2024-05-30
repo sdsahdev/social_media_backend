@@ -167,7 +167,9 @@ io.on("connection", (socket) => {
 });
 // **********************  SOKET CODE END LIVE ******************************************
 
-app.use("/uploads", express.static("uploads"));
+// app.use("/uploads", express.static("uploads"));
+app.use(express.static(__dirname));
+
 app.use("/socialapp/api/admin", adminRouter);
 app.use("/socialapp/api/chat", chatRouter);
 app.use("/socialapp/api/comment", commentRouter);
