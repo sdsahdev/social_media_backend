@@ -33,6 +33,8 @@ const {
 } = require("./constants/events");
 // const upload = multer();
 // middlware
+const cors = require("cors");
+app.use(cors());
 app.use(express.json());
 app.use(helmet());
 app.use(morgan("comman"));
@@ -177,8 +179,9 @@ app.get("/user", (req, res) => {
   res.send("hello user");
 });
 
-server.listen(process.env.PORT || 8000, () => {
-  console.log("app is runnig on port ", process.env.PORT || 8000);
+const portUrl = process.env.PORT || 8000;
+server.listen(portUrl, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${portUrl}`);
 });
 const emitEventfun = (req, event, users, data, chatId) => {
   const userSockets = users.map((user) => {

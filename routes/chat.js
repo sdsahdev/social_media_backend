@@ -377,7 +377,7 @@ router.post("/send-attachments", async (req, res) => {
       return res.status(400).json({ error: "Multer error" });
     } else if (err) {
       console.error("Error uploading files:", err);
-      return res.status(500).json({ error: "Error uploading files" });
+      return res.status(500).json({ error: "Error uploading files", err });
     }
 
     try {
