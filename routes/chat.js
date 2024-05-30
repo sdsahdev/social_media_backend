@@ -370,74 +370,63 @@ router.post("/leave-group/:chatId", async (req, res) => {
 });
 
 //   send attchament in chat message
-router.post("/send-attachments", async (req, res) => {
-  upload.array("files", 5)(req, res, async (err) => {
-    if (err instanceof multer.MulterError) {
-      console.error("Multer error:", err);
-      return res.status(400).json({ error: "Multer error" });
-    } else if (err) {
-      console.error("Error uploading files:", err);
-      return res.status(500).json({ error: "Error uploading files", err });
-    }
+router.post("/send-attachments", upload.array("files", 5), async (req, res) => {
+  try {
+    const files = req.files || [];
+    console.log(files, "======files====");
 
-    try {
-      const files = req.files || [];
+    const attachments = await uploadFilesOnClodenary(files);
 
-      console.log(files, "======files====");
+    const { sender, content, chatId } = req.body;
+    const [chat] = await Promise.all([Chat.findById(chatId)]);
+    console.log(sender, content, chatId, "=====data from postman");
+    const user = await User.findById(sender);
+    const newMessage = new ChatMessage({
+      sender: {
+        _id: user._id,
+        username: user.username,
+      },
+      content,
+      attachments,
+      chat: chatId,
+    });
 
-      const attachments = await uploadFilesOnClodenary(files);
+    console.log(newMessage, "===new message====");
+    // Save the chat message to the database
+    await newMessage.save();
+    const messageForRealTime = {
+      _id: newMessage._id,
+      sender: {
+        _id: user._id,
+        username: user.username,
+      },
+      content,
+      attachments,
+      chat: chatId,
+      createdAt: new Date().toISOString(),
+    };
+    // const message = await
+    eventFunction.emitEventfun(
+      req,
+      NEW_MESSAGE,
+      chat.participants,
+      messageForRealTime,
+      chatId
+    );
 
-      const { sender, content, chatId } = req.body;
-      const [chat] = await Promise.all([Chat.findById(chatId)]);
-      console.log(sender, content, chatId, "=====data from postman");
-      const user = await User.findById(sender);
-      const newMessage = new ChatMessage({
-        sender: {
-          _id: user._id,
-          username: user.username,
-        },
-        content,
-        attachments,
-        chat: chatId,
-      });
+    eventFunction.emitEventfun(req, NEW_MESSAGE_ALERT, chat.participants, {
+      chatId,
+    });
 
-      console.log(newMessage, "===new message====");
-      // Save the chat message to the database
-      await newMessage.save();
-      const messageForRealTime = {
-        _id: newMessage._id,
-        sender: {
-          _id: user._id,
-          username: user.username,
-        },
-        content,
-        attachments,
-        chat: chatId,
-        createdAt: new Date().toISOString(),
-      };
-      // const message = await
-      eventFunction.emitEventfun(
-        req,
-        NEW_MESSAGE,
-        chat.participants,
-        messageForRealTime,
-        chatId
-      );
-
-      eventFunction.emitEventfun(req, NEW_MESSAGE_ALERT, chat.participants, {
-        chatId,
-      });
-
-      res.status(200).json({
-        status: true,
-        message: "Chat message with attachments sent successfully",
-        files: attachments,
-      });
-    } catch (error) {
-      console.error("Error sending chat message with attachments:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+    res.status(200).json({
+      status: true,
+      message: "Chat message with attachments sent successfully",
+      files: attachments,
+    });
+  } catch (error) {
+    console.error("Error sending chat message with attachments:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // get chat details , rename , delete
