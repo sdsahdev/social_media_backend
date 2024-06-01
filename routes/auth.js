@@ -115,17 +115,10 @@ router.post("/refresh-token", (req, res) => {
 });
 
 router.post("/send-otp", (req, res) => {
-  const { email } = req.body;
+  const { email, otp } = req.body;
 
   if (!email) {
     return res.status(400).send("Email is required");
-  }
-  function generateOTP(length) {
-    let otp = "";
-    for (let i = 0; i < length; i++) {
-      otp += Math.floor(Math.random() * 10);
-    }
-    return otp;
   }
 
   const transporter = nodemailer.createTransport({
@@ -139,7 +132,6 @@ router.post("/send-otp", (req, res) => {
     },
   });
 
-  const otp = generateOTP(4);
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
