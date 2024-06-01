@@ -3,6 +3,8 @@ const { generateToken } = require("../middleware/auth");
 const User = require("../model/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+require("dotenv").config();
+const nodemailer = require("nodemailer");
 // register
 router.post("/register", async (req, res) => {
   try {
@@ -111,4 +113,62 @@ router.post("/refresh-token", (req, res) => {
     res.json({ accessToken });
   });
 });
+
+router.post("/send-otp", (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).send("Email is required");
+  }
+  function generateOTP(length) {
+    let otp = "";
+    for (let i = 0; i < length; i++) {
+      otp += Math.floor(Math.random() * 10);
+    }
+    return otp;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const otp = generateOTP(4);
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Your OTP Code for FlixPost",
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2 style="color: #333;">Hello,</h2>
+        <p>Your One-Time Password (OTP) for verifying your email address is:</p>
+        <p style="font-size: 24px; font-weight: bold; color: #007BFF;">${otp}</p>
+        <p>Thank you for signing up with <strong>FlixPost</strong>, the ultimate social media platform to share and connect with your friends.</p>
+        <p>Please enter this code in the app to complete your registration.</p>
+        <p>If you did not initiate this request, please ignore this email.</p>
+        <p>Thank you for joining <strong>FlixPost</strong>! We're excited to have you on board.</p>
+        <br>
+        <p>Best regards,</p>
+        <p>The FlixPost Team</p>
+        <br>
+        <hr>
+        <p style="font-size: 12px; color: #777;">If you have any questions, feel free to contact our support team at support@flixpost.com.</p>
+      </div>
+    `,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      return res.status(500).json("Error sending email: " + error.message);
+    }
+    res.status(200).json({ message: "OTP sent successfully" });
+  });
+});
+
 module.exports = router;
