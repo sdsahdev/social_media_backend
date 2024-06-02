@@ -75,7 +75,7 @@ router.post("/create-personal-chat", async (req, res) => {
 
     // Create a new chat with the specified participants
     const newChat = new Chat({
-      name: `${user.username} & ${participant.username}`, // Generate a name for the chat
+      name: `${participant.username}`, // Generate a name for the chat
       isGroupChat: false, // It's a personal chat
       participants: [userId, participantId],
       admin: userId, // Assuming the current user is the admin
