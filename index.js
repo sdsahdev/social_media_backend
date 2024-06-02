@@ -24,6 +24,8 @@ const {
   createSignleChat,
   createGroupChat,
   createMessages,
+  createFakeUsers,
+  createFakePosts,
 } = require("./seeders/users");
 const {
   NEW_MESSAGE,
@@ -46,7 +48,8 @@ app.use(express.static("public"));
 const { v4: uuid } = require("uuid");
 const { getSockets } = require("./Utils/commanf");
 const { verifyToken } = require("./middleware/auth");
-
+// createFakeUsers(10);
+// createFakePosts(10);
 const server = createServer(app);
 const io = new Server(server);
 // app.set("io", io);
@@ -205,7 +208,6 @@ exports.emitEventfun = emitEventfun;
 // createMessages("66067153909befd1dea18aed", 40)
 // createSignleChat(5)
 // createGroupChat(5)
-
 // app.get("/logindev", (req, res) => {
 //   const token = jwt.sign({_id:"ddeinowdndqqwbedfbqewfb"},sercretKey)
 //   res.cookie("token", token, { httpOnly:false, secure:true, sameSite:"none" })
