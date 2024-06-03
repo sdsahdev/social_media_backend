@@ -54,7 +54,7 @@ router.put("/update/:id", async (req, res) => {
 });
 
 // delete
-router.delete("/delete/:id", async (req, res) => {
+router.get("/delete/:id", async (req, res) => {
   try {
     const user = await User.findOne({ _id: req.params.id });
     if (user) {
@@ -78,7 +78,7 @@ router.delete("/delete/:id", async (req, res) => {
     }
   } catch (e) {
     console.log(e);
-    return res.status(500).json(e);
+    return res.status(500).json({ status: false, message: e });
   }
 });
 
