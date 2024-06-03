@@ -1,6 +1,8 @@
 const router = require("express").Router();
 const { verifyToken } = require("../middleware/auth");
 const User = require("../model/User");
+const DeletedUser = require("../model/DeletedUser");
+
 const bcrypt = require("bcrypt");
 const { ObjectId } = require("mongoose").Types;
 
@@ -56,6 +58,18 @@ router.delete("/delete/:id", async (req, res) => {
   try {
     const user = await User.findOne({ _id: req.params.id });
     if (user) {
+      // Save user data to DeletedUser collection
+      const deletedUser = new DeletedUser({
+        username: user.username,
+        email: user.email,
+        mobile: user.mobile,
+        gender: user.gender,
+        password: user.password, // Include password if needed, but typically hashed passwords are fine
+        deletedAt: new Date(),
+      });
+
+      await deletedUser.save();
+
       User.findByIdAndDelete({ _id: req.params.id }).then(() => {
         return res.status(200).json({ status: true, message: "User Deleted" });
       });
