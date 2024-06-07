@@ -184,7 +184,12 @@ app.get("/user", (req, res) => {
   res.send("hello user");
 });
 app.get("/socialapp/api/keep_alive", (req, res) => {
-  res.send("Server is awake!");
+  try {
+    res.send("Server is awake!");
+    console.log("Server is awake!");
+  } catch (e) {
+    console.log("server not alive" + e);
+  }
 });
 
 const portUrl = process.env.PORT || 8000;
