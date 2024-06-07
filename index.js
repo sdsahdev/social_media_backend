@@ -183,6 +183,9 @@ app.use("/socialapp/api/auth", authRouter);
 app.get("/user", (req, res) => {
   res.send("hello user");
 });
+app.get("/socialapp/api/keep_alive", (req, res) => {
+  res.send("Server is awake!");
+});
 
 const portUrl = process.env.PORT || 8000;
 server.listen(portUrl, "0.0.0.0", () => {
